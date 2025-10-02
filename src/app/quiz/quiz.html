@@ -2,25 +2,26 @@
   <div class="card">
     <header class="top">
       <div class="title">🧩 Quizmaker</div>
-      <div class="meta">
-        Spørgsmål {{ currentQuestionIndex + 1 }} / {{ questions.length }}
-      </div>
-      <div class="progress">
-        <div class="bar" [style.width.%]="progressPct"></div>
-      </div>
+      <div class="spacer"></div>
+      <button class="theme" (click)="toggleTheme()" [attr.aria-label]="'Skift til ' + (theme==='dark'?'lys':'mørk') + ' tilstand'">
+        <span *ngIf="theme==='dark'">☀️</span>
+        <span *ngIf="theme==='light'">🌙</span>
+      </button>
     </header>
+
+    <div class="meta">Spørgsmål {{ currentQuestionIndex + 1 }} / {{ questions.length }}</div>
+    <div class="progress"><div class="bar" [style.width.%]="progressPct"></div></div>
 
     <main class="content" *ngIf="!isLast || !answered; else finishedBlock">
       <h2 class="question">{{ q.question }}</h2>
 
       <ul class="options">
         <li *ngFor="let a of q.answers">
-          <button
-            class="opt"
-            [class.correct]="answered && a === q.correct"
-            [class.wrong]="answered && selectedAnswer === a && a !== q.correct"
-            [disabled]="answered"
-            (click)="selectAnswer(a)">
+          <button class="opt"
+                  [class.correct]="answered && a === q.correct"
+                  [class.wrong]="answered && selectedAnswer === a && a !== q.correct"
+                  [disabled]="answered"
+                  (click)="selectAnswer(a)">
             {{ a }}
           </button>
         </li>
@@ -28,14 +29,11 @@
 
       <div class="feedback" *ngIf="answered">
         <span *ngIf="selectedAnswer === q.correct" class="ok">✅ Korrekt!</span>
-        <span *ngIf="selectedAnswer !== q.correct" class="bad">
-          ❌ Forkert. Rigtigt svar er <strong>{{ q.correct }}</strong>.
-        </span>
+        <span *ngIf="selectedAnswer !== q.correct" class="bad">❌ Forkert. Rigtigt svar er <strong>{{ q.correct }}</strong>.</span>
       </div>
 
       <div class="actions">
         <button class="next" (click)="nextQuestion()" *ngIf="!isLast">Næste</button>
-        <button class="next" (click)="nextQuestion()" *ngIf="isLast && !answered" disabled>Næste</button>
       </div>
     </main>
 
