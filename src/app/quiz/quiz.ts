@@ -3,8 +3,8 @@ import { CommonModule } from '@angular/common';
 
 @Component({
   selector: 'app-quiz',
-  standalone: true,   // vigtigt i Angular 17+
-  imports: [CommonModule],  // her importerer vi NgFor og NgIf
+  standalone: true,                 // ✅ standalone component
+  imports: [CommonModule],          // ✅ gives you *ngFor / *ngIf
   templateUrl: './quiz.html',
   styleUrls: ['./quiz.css']
 })
@@ -16,24 +16,16 @@ export class Quiz {
   questions = [
     {
       question: 'Hvad står HTML for?',
-      answers: ['Hyper Text Markup Language', 'HighText Machine Language', 'Home Tool Markup Language'],
+      answers: ['Hyper Text Markup Language','HighText Machine Language','Home Tool Markup Language'],
       correct: 'Hyper Text Markup Language'
     },
     {
       question: 'Hvilket år blev JavaScript introduceret?',
-      answers: ['1993', '1995', '1997'],
+      answers: ['1993','1995','1997'],
       correct: '1995'
     }
   ];
 
-  selectAnswer(answer: string) {
-    this.selectedAnswer = answer;
-    this.showResult = true;
-  }
-
-  nextQuestion() {
-    this.currentQuestionIndex++;
-    this.selectedAnswer = null;
-    this.showResult = false;
-  }
+  selectAnswer(answer: string){ this.selectedAnswer = answer; this.showResult = true; }
+  nextQuestion(){ this.currentQuestionIndex++; this.selectedAnswer = null; this.showResult = false; }
 }
