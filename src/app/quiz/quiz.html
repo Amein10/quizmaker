@@ -6,7 +6,7 @@
 
       <!-- Builder toggle -->
       <button class="chip" (click)="showBuilder = !showBuilder" aria-expanded="{{showBuilder}}">
-        ➕ Tilføj spørgsmål
+        🛠️ Opret quiz
       </button>
 
       <!-- Navn + tema -->
@@ -21,7 +21,7 @@
 
     <!-- ===== BUILDER ===== -->
     <section class="builder" *ngIf="showBuilder">
-      <h4>Tilføj eget spørgsmål</h4>
+      <h4>Opret quiz</h4>
       <div class="form">
         <label>Spørgsmål
           <input type="text" [(ngModel)]="newQ.question" />
@@ -43,17 +43,26 @@
           <input type="text" [(ngModel)]="newQ.img" placeholder="https://..." />
         </label>
 
+        <!-- Under-overskrift for sektion -->
+        <div class="subtle-head">Spørgsmål & svar</div>
+
         <div class="answers">
           <div class="ans" *ngFor="let a of newQ.answers; index as i">
             <input type="text" [(ngModel)]="a.text" placeholder="Svartekst" />
-            <label class="check"><input type="radio" name="correct" [checked]="a.isCorrect" (change)="setCorrect(i)"> korrekt</label>
+
+            <!-- radio + tekst: forbedret klikområde og layout -->
+            <label class="check">
+            <input type="radio" name="correct" [checked]="a.isCorrect" (change)="setCorrect(i)" />
+            <span>Korrekt</span>
+            </label>
+
             <button class="danger" (click)="removeAnswer(i)" *ngIf="newQ.answers.length > 2" aria-label="Fjern svar">✖</button>
           </div>
-          <button class="chip" (click)="addAnswer()">+ Svarmulighed</button>
+          <button class="chip" (click)="addAnswer()">+ Tilføj svarmulighed</button>
         </div>
 
         <div class="builder-actions">
-          <button class="next" (click)="saveNewQuestion()">Gem spørgsmål</button>
+          <button class="next" (click)="saveNewQuestion()">Tilføj spørgsmål</button>
           <button class="ghost" (click)="showBuilder=false">Luk</button>
         </div>
       </div>

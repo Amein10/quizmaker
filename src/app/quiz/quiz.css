@@ -178,9 +178,38 @@ button.danger:hover { background: rgba(239,68,68,.1); }
 .builder .form label { display:block; margin-bottom:8px; font-size:14px; }
 .builder .form input, .builder .form select { width:100%; padding:8px 10px; border:1px solid var(--border); border-radius:8px; background:var(--surface); }
 .builder .row { display:grid; grid-template-columns: 1fr 160px; gap:12px; }
+
+.subtle-head { margin: 8px 0 4px; font-size: 12px; opacity: .7; }
+
+/* svarlinjer */
 .answers { margin-top:10px; display:grid; gap:8px; }
+
+/* Opdateret layout for svar-række */
 .ans { display:grid; grid-template-columns: 1fr auto auto; gap:8px; align-items:center; }
-.check { font-size:12px; }
+
+/* Radio + label-chips: tydeligt klikområde og bedre kontrast */
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text);
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: var(--surface, transparent);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+.check input[type="radio"] {
+  accent-color: #22c55e;           /* grøn passer til success */
+  cursor: pointer;
+}
+.check input[type="radio"]:focus-visible {
+  outline: 2px solid #22c55e;
+  outline-offset: 2px;
+}
+
 .builder-actions { display:flex; gap:8px; margin-top:8px; }
 
 /* --- Chart --- */
@@ -199,3 +228,133 @@ button.danger:hover { background: rgba(239,68,68,.1); }
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; scroll-behavior: auto !important; }
 }
+
+/* Småskærms-tilpasning så radio/tekst ikke hopper */
+@media (max-width: 420px) {
+  .ans { grid-template-columns: 1fr 1fr auto; }
+}
+
+/* Radio-label skal ikke arve "form label"-stilen */
+.builder .form label.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;                 /* nulstil margin-bottom fra form label */
+  font-size: 12px;
+  color: var(--text);
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: var(--surface, transparent);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.builder .form label.check input[type="radio"] {
+  accent-color: #22c55e;
+  cursor: pointer;
+}
+.builder .form label.check input[type="radio"]:focus-visible {
+  outline: 2px solid #22c55e;
+  outline-offset: 2px;
+}
+
+/* 1) “Ghost”-knap-stil så “Luk” matcher dit tema */
+button.ghost {
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+button.ghost:hover { background: rgba(2,6,23,.08); }
+
+/* 2) Giv lidt luft under builderen */
+.builder { margin: 12px 0 20px; }
+
+/* 3) Radio/“Korrekt” justeres og får lidt indvendig luft */
+.ans { 
+  grid-template-columns: 1fr max-content max-content; /* content-baserede kolonner til højresiden */
+}
+.ans .check { 
+  justify-self: end; 
+  padding-right: 4px;           /* en anelse luft fra højre kant */
+}
+
+/* 4) Gør “Sværhedsgrad”-kolonnen mere fleksibel i den vandrette builder-række */
+.builder .row { 
+  grid-template-columns: 1fr max-content;  /* i stedet for 1fr 160px */
+}
+
+/* Evt. fallback til meget små skærme: læg felterne under hinanden */
+@media (max-width: 520px) {
+  .builder .row { grid-template-columns: 1fr; }
+}
+
+/* --- Layout-fixes til builderen --- */
+
+/* Ens felt-højde og bedre indre luft */
+:root { --field-h: 40px; }
+
+.builder { 
+  padding: 16px;                 /* lidt mere padding, så felter ikke 'rammer' rammen */
+  margin: 12px 0 20px;
+}
+
+.builder .form {
+  display: grid;
+  gap: 12px;                     /* lodret spacing mellem felter */
+}
+
+/* label i builderen skal ikke skubbe ekstra afstand; vi bruger gap i stedet */
+.builder .form label { 
+  display: block;
+  margin: 0;
+}
+
+/* felter: ens højde + box-sizing så de ikke 'stikker ud' */
+.builder .form input,
+.builder .form select {
+  height: var(--field-h);
+  line-height: var(--field-h);
+  box-sizing: border-box;
+}
+
+/* Kategori / Sværhedsgrad: større kolonne-gap og content-baseret 2. kolonne */
+.builder .row { 
+  display: grid;
+  grid-template-columns: 1fr 220px;   /* i stedet for 1fr 160px/max-content */
+  gap: 14px;                          /* FIX: luft mellem Kategori og Sværhedsgrad */
+  align-items: end;
+}
+@media (max-width: 640px) {
+  .builder .row { grid-template-columns: 1fr; }
+}
+
+/* Svarlinjen: mere kolonne-gap + luft mellem tekstfelt og 'Korrekt' */
+.answers { gap: 10px; }
+.ans { 
+  display: grid; 
+  grid-template-columns: 1fr auto auto; 
+  gap: 12px;                           /* FIX: afstand til radio-label */
+  align-items: center; 
+}
+
+/* ekstra lille afstand til højre for tekstfeltet så det ikke 'rammer' radioen */
+.answers .ans input[type="text"] { padding-right: 12px; }
+
+/* radio/label-chip – sørg for afstand fra feltet og pæn klikbarhed */
+.builder .form label.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: var(--surface, transparent);
+  color: var(--text);
+  white-space: nowrap;
+  cursor: pointer;
+  justify-self: end;                   /* hold den i højre side af rækken */
+}
+.builder .form label.check input[type="radio"] { accent-color: #22c55e; cursor: pointer; }
+.builder .form label.check input[type="radio"]:focus-visible { outline: 2px solid #22c55e; outline-offset: 2px; }
