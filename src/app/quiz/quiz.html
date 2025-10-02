@@ -1,29 +1,50 @@
-<div class="quiz-container">
-  <h2>{{ questions[currentQuestionIndex].question }}</h2>
+<div class="page">
+  <div class="card">
+    <header class="top">
+      <div class="title">🧩 Quizmaker</div>
+      <div class="meta">
+        Spørgsmål {{ currentQuestionIndex + 1 }} / {{ questions.length }}
+      </div>
+      <div class="progress">
+        <div class="bar" [style.width.%]="progressPct"></div>
+      </div>
+    </header>
 
-  <ul>
-    @for (answer of questions[currentQuestionIndex].answers; track answer) {
-      <li>
-        <button (click)="selectAnswer(answer)" [disabled]="showResult">
-          {{ answer }}
-        </button>
-      </li>
-    }
-  </ul>
+    <main class="content" *ngIf="!isLast || !answered; else finishedBlock">
+      <h2 class="question">{{ q.question }}</h2>
 
-  @if (showResult) {
-    <p *ngIf="selectedAnswer === questions[currentQuestionIndex].correct" style="color: green;">
-      ✅ Korrekt!
-    </p>
-    <p *ngIf="selectedAnswer !== questions[currentQuestionIndex].correct" style="color: red;">
-      ❌ Forkert! Rigtigt svar er: {{ questions[currentQuestionIndex].correct }}
-    </p>
+      <ul class="options">
+        <li *ngFor="let a of q.answers">
+          <button
+            class="opt"
+            [class.correct]="answered && a === q.correct"
+            [class.wrong]="answered && selectedAnswer === a && a !== q.correct"
+            [disabled]="answered"
+            (click)="selectAnswer(a)">
+            {{ a }}
+          </button>
+        </li>
+      </ul>
 
-    <button (click)="nextQuestion()" *ngIf="currentQuestionIndex < questions.length - 1">
-      Næste spørgsmål
-    </button>
-    <p *ngIf="currentQuestionIndex === questions.length - 1">
-      🎉 Du har gennemført quizzen!
-    </p>
-  }
+      <div class="feedback" *ngIf="answered">
+        <span *ngIf="selectedAnswer === q.correct" class="ok">✅ Korrekt!</span>
+        <span *ngIf="selectedAnswer !== q.correct" class="bad">
+          ❌ Forkert. Rigtigt svar er <strong>{{ q.correct }}</strong>.
+        </span>
+      </div>
+
+      <div class="actions">
+        <button class="next" (click)="nextQuestion()" *ngIf="!isLast">Næste</button>
+        <button class="next" (click)="nextQuestion()" *ngIf="isLast && !answered" disabled>Næste</button>
+      </div>
+    </main>
+
+    <ng-template #finishedBlock>
+      <div class="result">
+        <h3>🎉 Du har gennemført quizzen!</h3>
+        <p>Score: <strong>{{ score }}</strong> / {{ questions.length }}</p>
+        <button class="next" (click)="restart()">Prøv igen</button>
+      </div>
+    </ng-template>
+  </div>
 </div>
