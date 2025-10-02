@@ -6,10 +6,9 @@
 
       <!-- Spillernavn -->
       <input class="name" type="text"
-       placeholder="Dit navn…"
-       [value]="playerName"
-       (input)="onNameChange($any($event.target).value)" />
-
+             placeholder="Dit navn…"
+             [value]="playerName"
+             (input)="onNameChange($any($event.target).value)" />
 
       <button class="theme" (click)="toggleTheme()" [attr.aria-label]="'Skift til ' + (theme==='dark'?'lys':'mørk')">
         <span *ngIf="theme==='dark'">☀️</span>
@@ -97,13 +96,42 @@
     <ng-template #finishedBlock>
       <div class="result fade in">
         <h3 *ngIf="total > 0; else noQs">🎉 Du har gennemført quizzen!</h3>
-        <p *ngIf="total > 0">Score: <strong>{{ score }}</strong> / {{ total }} ({{ (score/total*100) | number:'1.0-0' }}%)</p>
+
+        <!-- 👉 Score + procent -->
+        <p *ngIf="total > 0">
+          Score: <strong>{{ score }}</strong> / {{ total }} — <strong>{{ percentScore }}%</strong>
+        </p>
+
         <button *ngIf="total > 0" class="next" (click)="restart()">Prøv igen</button>
 
         <ng-template #noQs>
           <h3>Ingen spørgsmål matcher dine filtre.</h3>
           <p>Vælg en anden kombination af kategori og sværhedsgrad.</p>
         </ng-template>
+
+        <!-- 👉 OPSUMMERING -->
+        <div class="summary" *ngIf="summary.length">
+          <h4>📝 Opsummering</h4>
+          <ol>
+            <li *ngFor="let s of summary; index as i" [class.ok]="s.wasCorrect" [class.bad]="!s.wasCorrect">
+              <div class="qline">
+                <span class="badge">{{ i + 1 }}</span>
+                <span class="qtxt">{{ s.q }}</span>
+              </div>
+              <div class="aline">
+                <span *ngIf="s.selectedIndex !== null; else noAnswer">
+                  Dit svar: <strong>{{ s.answers[s.selectedIndex!].text }}</strong>
+                </span>
+                <ng-template #noAnswer>Dit svar: <em>intet (tiden løb ud)</em></ng-template>
+              </div>
+              <div class="cline">
+                Korrekt: <strong>{{ s.answers[s.correctIndex].text }}</strong>
+                <span class="status" *ngIf="s.wasCorrect">✅</span>
+                <span class="status" *ngIf="!s.wasCorrect">❌</span>
+              </div>
+            </li>
+          </ol>
+        </div>
 
         <!-- HIGHSCORES -->
         <div class="highscores" *ngIf="highscores.length">

@@ -24,13 +24,22 @@ type ScoreEntry = {
   score: number;
   total: number;
   percent: number;
-  category: string;           // valgt filter på spilletidspunktet
-  difficulty: string;         // valgt filter på spilletidspunktet
-  dateISO: string;            // til sortering/visning
+  category: string;
+  difficulty: string;
+  dateISO: string;
 };
 
 const HS_KEY = 'qm_highscores';
 const NAME_KEY = 'qm_player_name';
+
+/** 👉 NY: opsummeringspost for hvert spørgsmål */
+type SummaryItem = {
+  q: string;
+  selectedIndex: number | null;   // null = intet svar / tiden løb ud
+  correctIndex: number;
+  answers: Answer[];              // så vi kan vise tekster i HTML
+  wasCorrect: boolean;
+};
 
 @Component({
   selector: 'app-quiz',
@@ -151,7 +160,7 @@ export class Quiz {
   ];
 
   // ------- FILTRE -------
-  categories: string[] = [];                           // fx ["Alle", "Film", ...]
+  categories: string[] = [];
   difficulties: Array<'Alle' | Difficulty> = ['Alle', 'Let', 'Middel', 'Svær'];
 
   selectedCategory: string = 'Alle';
@@ -190,7 +199,7 @@ export class Quiz {
   }
 
   private prepareSession() {
-    // 1) filtrér efter kategori + sværhedsgrad
+    // 1) filtrer
     let filtered = this.questionsSource;
     if (this.selectedCategory !== 'Alle') {
       filtered = filtered.filter(q => q.category === this.selectedCategory);
@@ -199,7 +208,7 @@ export class Quiz {
       filtered = filtered.filter(q => q.difficulty === this.selectedDifficulty);
     }
 
-    // 2) dyb kopi + shuffle svar i hvert spørgsmål + shuffle spørgsmål
+    // 2) kopi + shuffle
     const copy = this.deepCopy<Question[]>(filtered);
     for (const q of copy) q.answers = this.shuffle(q.answers);
     this.session = this.shuffle(copy);
@@ -211,9 +220,15 @@ export class Quiz {
     this.score = 0;
     this.fade = true;
 
-    // 4) timer start (hvis der er spørgsmål)
+    // 👉 NY: nulstil opsummering
+    this.summary = [];
+
+    // 4) timer
     this.stopTimer();
     if (this.total > 0) this.startTimer();
+
+    // highscore post flag
+    this.postedScore = false;
   }
 
   // ------- FLOW / UI -------
@@ -231,9 +246,13 @@ export class Quiz {
   get correctAnswerText(): string {
     return this.q?.answers.find(a => a.isCorrect)?.text ?? '';
   }
+  /** Procent færdig score – praktisk i skabelonen */
+  get percentScore(): number {
+    return this.total ? Math.round((this.score / this.total) * 100) : 0;
+  }
 
   // ------- TIMER -------
-  timerPerQuestion = 20;         // sekunder per spørgsmål (kan gøres konfigurerbart)
+  timerPerQuestion = 20;
   timeLeft = this.timerPerQuestion;
   private timerId: any = null;
 
@@ -249,7 +268,6 @@ export class Quiz {
       if (this.timeLeft <= 0) this.handleTimesUp();
     }, 1000);
   }
-
   private stopTimer() {
     if (this.timerId) {
       clearInterval(this.timerId);
@@ -260,15 +278,17 @@ export class Quiz {
   private handleTimesUp() {
     this.stopTimer();
     if (this.answered) return;
-    // marker som besvaret uden valg
+
+    // 👉 NY: registrér opsummering (intet svar)
+    this.pushSummary(null);
+
     this.answered = true;
     this.selectedIndex = null;
-    // sidste spørgsmål?
+
     if (this.isLast) {
-      this.saveCurrentRunToHighscores();   // gem scoringen
+      this.saveCurrentRunToHighscores();
       setTimeout(() => this.confetti(), 150);
     } else {
-      // auto-videre efter kort pause
       setTimeout(() => this.nextQuestion(), 800);
     }
   }
@@ -279,6 +299,9 @@ export class Quiz {
     this.answered = true;
     this.stopTimer();
     if (this.q.answers[i]?.isCorrect) this.score++;
+
+    // 👉 NY: registrér opsummering
+    this.pushSummary(i);
 
     if (this.isLast) {
       this.saveCurrentRunToHighscores();
@@ -299,7 +322,26 @@ export class Quiz {
   }
 
   restart() {
-    this.prepareSession(); // samme filtre, ny shuffle + timer reset
+    this.prepareSession();
+  }
+
+  // ------- OPSUMMERING -------
+  summary: SummaryItem[] = [];
+
+  /** Laver en opsummeringspost for det AKTUELLE spørgsmål */
+  private pushSummary(selectedIndex: number | null) {
+    const q = this.q;
+    if (!q) return;
+    const correctIndex = q.answers.findIndex(a => a.isCorrect);
+    const wasCorrect = selectedIndex !== null && q.answers[selectedIndex]?.isCorrect === true;
+
+    this.summary.push({
+      q: q.question,
+      selectedIndex,
+      correctIndex,
+      answers: q.answers,
+      wasCorrect
+    });
   }
 
   // ------- SPILLERNAVN -------
@@ -313,47 +355,35 @@ export class Quiz {
   private postedScore = false;
 
   private loadHighscores(): ScoreEntry[] {
-    try {
-      return JSON.parse(localStorage.getItem(HS_KEY) || '[]') as ScoreEntry[];
-    } catch { return []; }
+    try { return JSON.parse(localStorage.getItem(HS_KEY) || '[]') as ScoreEntry[]; }
+    catch { return []; }
   }
   private saveHighscores(list: ScoreEntry[]) {
     localStorage.setItem(HS_KEY, JSON.stringify(list));
   }
-
   private saveCurrentRunToHighscores() {
     if (this.postedScore || this.total === 0) return;
     this.postedScore = true;
 
     const name = (this.playerName || 'Ukendt').slice(0, 32);
-    const percent = this.total ? Math.round((this.score / this.total) * 100) : 0;
+    const percent = this.percentScore;
 
     const entry: ScoreEntry = {
-      name,
-      score: this.score,
-      total: this.total,
-      percent,
-      category: this.selectedCategory,
-      difficulty: this.selectedDifficulty,
+      name, score: this.score, total: this.total, percent,
+      category: this.selectedCategory, difficulty: this.selectedDifficulty,
       dateISO: new Date().toISOString()
     };
 
     const list = this.loadHighscores();
     list.push(entry);
-
-    // sorter: højeste procent → højeste score → nyeste
     list.sort((a, b) =>
       b.percent - a.percent ||
       b.score - a.score ||
       b.dateISO.localeCompare(a.dateISO)
     );
-
-    // behold fx top 50 (globalt)
     this.saveHighscores(list.slice(0, 50));
   }
-
   get highscores(): ScoreEntry[] {
-    // vis top 10 for nuværende filter-kontekst (inkl. 'Alle')
     const list = this.loadHighscores();
     return list
       .filter(e =>
@@ -362,7 +392,6 @@ export class Quiz {
       )
       .slice(0, 10);
   }
-
   clearHighscores() {
     this.saveHighscores([]);
   }
