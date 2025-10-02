@@ -1,5 +1,6 @@
-import { Component } from '@angular/core';
+import { Component, ElementRef, OnDestroy, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 
 type Theme = 'light' | 'dark';
 type Difficulty = 'Let' | 'Middel' | 'Svær';
@@ -17,47 +18,47 @@ type Question = {
   difficulty: Difficulty;
   img?: string;
   answers: Answer[];
+  correctIndex: number; // indekset for den korrekte i answers
+};
+
+type SummaryRow = {
+  q: string;
+  answers: Answer[];
+  correctIndex: number;
+  selectedIndex: number | null;
+  wasCorrect: boolean;
 };
 
 type ScoreEntry = {
   name: string;
+  category: string;
+  difficulty: Difficulty;
   score: number;
   total: number;
-  percent: number;
-  category: string;
-  difficulty: string;
+  percent: number; // afrundet
   dateISO: string;
-};
-
-const HS_KEY = 'qm_highscores';
-const NAME_KEY = 'qm_player_name';
-
-/** 👉 NY: opsummeringspost for hvert spørgsmål */
-type SummaryItem = {
-  q: string;
-  selectedIndex: number | null;   // null = intet svar / tiden løb ud
-  correctIndex: number;
-  answers: Answer[];              // så vi kan vise tekster i HTML
-  wasCorrect: boolean;
 };
 
 @Component({
   selector: 'app-quiz',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './quiz.html',
-  styleUrls: ['./quiz.css']
+  styleUrls: ['./quiz.css'],
 })
-export class Quiz {
-  // ------- TEMA -------
-  theme: Theme = (localStorage.getItem('theme') as Theme)
-    ?? (window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+export class Quiz implements OnDestroy {
+  // Gør Math tilgængelig i skabelonen (bruges i grafen)
+  Math = Math;
+
+  // ---------- Tema ----------
+  theme: Theme =
+    (localStorage.getItem('theme') as Theme) ??
+    (typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
 
   constructor() {
     this.applyTheme();
-    this.playerName = localStorage.getItem(NAME_KEY) ?? '';
-    this.buildFilters();
-    this.prepareSession(); // første session
+    this.loadPersisted();
+    this.applyFilters();
   }
 
   toggleTheme() {
@@ -65,252 +66,258 @@ export class Quiz {
     this.applyTheme();
   }
   private applyTheme() {
+    if (typeof document === 'undefined') return;
     document.documentElement.setAttribute('data-theme', this.theme);
     localStorage.setItem('theme', this.theme);
   }
 
-  // ------- KILDEDATA (ikke-shufflede) -------
-  questionsSource: Question[] = [
-    // PROGRAMMERING
+  // ---------- Bruger / filtre ----------
+  playerName = localStorage.getItem('playerName') || '';
+  onNameChange(val: string) {
+    this.playerName = val.trim();
+    localStorage.setItem('playerName', this.playerName);
+  }
+
+  categories = ['Programmering', 'Film', 'Historie'];
+  difficulties: Difficulty[] = ['Let', 'Middel', 'Svær'];
+
+  selectedCategory = this.categories[0];
+  selectedDifficulty: Difficulty = 'Let';
+
+  setCategory(c: string) {
+    this.selectedCategory = c;
+    this.applyFilters();
+  }
+  setDifficulty(d: Difficulty) {
+    this.selectedDifficulty = d;
+    this.applyFilters();
+  }
+
+  // ---------- Spørgsmål (master + filtreret) ----------
+  private masterQuestions: Question[] = [
     {
-      category: 'Programmering',
-      difficulty: 'Let',
       question: 'Hvad står HTML for?',
-      img: 'assets/html.png',
+      category: 'Programmering',
+      difficulty: 'Let',
       answers: [
-        { text: 'Hyper Text Markup Language', isCorrect: true, icon: '✅' },
-        { text: 'HighText Machine Language',  icon: '⚙️' },
-        { text: 'Home Tool Markup Language',  icon: '🏠' }
-      ]
+        { text: 'Hyper Text Markup Language', isCorrect: true },
+        { text: 'HighText Machine Language' },
+        { text: 'Home Tool Markup Language' },
+      ],
+      correctIndex: 0,
     },
     {
+      question: 'Hvilket år blev JavaScript introduceret?',
       category: 'Programmering',
       difficulty: 'Middel',
-      question: 'Vælg JavaScript-logoet',
-      answers: [
-        { text: 'JS',    img: 'assets/js.png',  isCorrect: true },
-        { text: 'HTML',  img: 'assets/html.png' },
-        { text: 'Random kat', img: 'assets/cat.jpg' }
-      ]
+      answers: [{ text: '1993' }, { text: '1995', isCorrect: true }, { text: '1997' }],
+      correctIndex: 1,
     },
-    {
-      category: 'Programmering',
-      difficulty: 'Svær',
-      question: 'Hvad kalder man princippet “OCP” i OOP?',
-      answers: [
-        { text: 'Open/Closed Principle', isCorrect: true },
-        { text: 'Object/Class Pattern' },
-        { text: 'Overload/Compile Principle' }
-      ]
-    },
-
-    // FILM
-    {
-      category: 'Film',
-      difficulty: 'Let',
-      question: 'Hvem instruerede “Inception”?',
-      answers: [
-        { text: 'Christopher Nolan', isCorrect: true },
-        { text: 'Steven Spielberg' },
-        { text: 'James Cameron' }
-      ]
-    },
-    {
-      category: 'Film',
-      difficulty: 'Middel',
-      question: 'Hvilket år udkom den første “Star Wars”-film?',
-      answers: [
-        { text: '1977', isCorrect: true },
-        { text: '1983' },
-        { text: '1975' }
-      ]
-    },
-
-    // HISTORIE
-    {
-      category: 'Historie',
-      difficulty: 'Let',
-      question: 'Hvor lå den antikke by Pompeji?',
-      answers: [
-        { text: 'Italien', isCorrect: true },
-        { text: 'Grækenland' },
-        { text: 'Spanien' }
-      ]
-    },
-    {
-      category: 'Historie',
-      difficulty: 'Middel',
-      question: 'Hvilken civilisation byggede Machu Picchu?',
-      answers: [
-        { text: 'Inkaerne', isCorrect: true },
-        { text: 'Mayaerne' },
-        { text: 'Aztekerne' }
-      ]
-    },
-    {
-      category: 'Historie',
-      difficulty: 'Svær',
-      question: 'Hvem var den første romerske kejser?',
-      answers: [
-        { text: 'Augustus', isCorrect: true },
-        { text: 'Julius Cæsar' },
-        { text: 'Nero' }
-      ]
-    }
   ];
 
-  // ------- FILTRE -------
-  categories: string[] = [];
-  difficulties: Array<'Alle' | Difficulty> = ['Alle', 'Let', 'Middel', 'Svær'];
-
-  selectedCategory: string = 'Alle';
-  selectedDifficulty: 'Alle' | Difficulty = 'Alle';
-
-  private buildFilters() {
-    const set = new Set<string>(this.questionsSource.map(q => q.category));
-    this.categories = ['Alle', ...Array.from(set).sort()];
+  questions: Question[] = []; // den filtrerede + shuffl’ede liste (stabil pr. “run”)
+  get total() {
+    return this.questions.length;
+  }
+  get q() {
+    return this.questions[this.currentQuestionIndex];
   }
 
-  setCategory(cat: string) {
-    if (this.selectedCategory === cat) return;
-    this.selectedCategory = cat;
-    this.prepareSession();
-  }
-
-  setDifficulty(diff: 'Alle' | Difficulty) {
-    if (this.selectedDifficulty === diff) return;
-    this.selectedDifficulty = diff;
-    this.prepareSession();
-  }
-
-  // ------- SESSION (filtreret + shuffle) -------
-  private session: Question[] = [];
-
-  private shuffle<T>(arr: T[]): T[] {
-    const a = arr.slice();
-    for (let i = a.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [a[i], a[j]] = [a[j], a[i]];
-    }
-    return a;
-  }
-  private deepCopy<T>(obj: T): T {
-    return JSON.parse(JSON.stringify(obj));
-  }
-
-  private prepareSession() {
-    // 1) filtrer
-    let filtered = this.questionsSource;
-    if (this.selectedCategory !== 'Alle') {
-      filtered = filtered.filter(q => q.category === this.selectedCategory);
-    }
-    if (this.selectedDifficulty !== 'Alle') {
-      filtered = filtered.filter(q => q.difficulty === this.selectedDifficulty);
-    }
-
-    // 2) kopi + shuffle
-    const copy = this.deepCopy<Question[]>(filtered);
-    for (const q of copy) q.answers = this.shuffle(q.answers);
-    this.session = this.shuffle(copy);
-
-    // 3) nulstil flow
-    this.currentQuestionIndex = 0;
-    this.selectedIndex = null;
-    this.answered = false;
-    this.score = 0;
-    this.fade = true;
-
-    // 👉 NY: nulstil opsummering
-    this.summary = [];
-
-    // 4) timer
-    this.stopTimer();
-    if (this.total > 0) this.startTimer();
-
-    // highscore post flag
-    this.postedScore = false;
-  }
-
-  // ------- FLOW / UI -------
+  // ---------- Quiz state ----------
   currentQuestionIndex = 0;
   selectedIndex: number | null = null;
   answered = false;
   score = 0;
   fade = true;
 
-  get q() { return this.session[this.currentQuestionIndex]; }
-  get total() { return this.session.length; }
-  get progressPct() { return this.total ? Math.round((this.currentQuestionIndex / this.total) * 100) : 0; }
-  get isLast() { return this.currentQuestionIndex >= this.total - 1; }
-  get finished() { return this.total > 0 && this.isLast && this.answered; }
-  get correctAnswerText(): string {
-    return this.q?.answers.find(a => a.isCorrect)?.text ?? '';
+  // Timer (driftfri)
+  timerPerQuestion = 20; // sekunder
+  timeLeft = this.timerPerQuestion;
+  private timerHandle: any = null;
+  private deadlineMs = 0;
+
+  // “log én gang pr. spørgsmål”
+  private hasLoggedForQuestion = false;
+
+  // Statistik til opsummering/graf
+  summary: SummaryRow[] = [];
+  runTimes: number[] = []; // hvor lang tid brugt pr. spørgsmål (sekunder)
+  correctMap: boolean[] = []; // true/false pr. spørgsmål
+
+  // Highscores & historik (persist)
+  highscores: ScoreEntry[] = [];
+  history: ScoreEntry[] = [];
+
+  // ---------- Builder (tilføj egne spørgsmål) ----------
+  showBuilder = false;
+  newQ: {
+    question: string;
+    category: string;
+    difficulty: Difficulty;
+    img: string;
+    answers: { text: string; isCorrect: boolean }[];
+  } = {
+    question: '',
+    category: '',
+    difficulty: 'Let',
+    img: '',
+    answers: [
+      { text: '', isCorrect: false },
+      { text: '', isCorrect: false },
+    ],
+  };
+
+  addAnswer() {
+    this.newQ.answers.push({ text: '', isCorrect: false });
   }
-  /** Procent færdig score – praktisk i skabelonen */
-  get percentScore(): number {
+  removeAnswer(i: number) {
+    if (this.newQ.answers.length > 2) this.newQ.answers.splice(i, 1);
+  }
+  setCorrect(i: number) {
+    this.newQ.answers = this.newQ.answers.map((a, idx) => ({ ...a, isCorrect: idx === i }));
+  }
+  saveNewQuestion() {
+    const trimmed = this.newQ.answers
+      .map((a) => ({ ...a, text: a.text.trim() }))
+      .filter((a) => a.text.length);
+
+    if (!this.newQ.question.trim() || trimmed.length < 2) return;
+
+    const ci = trimmed.findIndex((a) => a.isCorrect);
+    if (ci < 0) return;
+
+    const q: Question = {
+      question: this.newQ.question.trim(),
+      category: (this.newQ.category || 'Ukategoriseret').trim(),
+      difficulty: this.newQ.difficulty,
+      img: this.newQ.img.trim() || undefined,
+      answers: trimmed.map((a) => ({ text: a.text, isCorrect: a.isCorrect })),
+      correctIndex: ci,
+    };
+
+    this.masterQuestions.push(q);
+    if (q.category && !this.categories.includes(q.category)) this.categories.push(q.category);
+
+    // nulstil builder-form
+    this.newQ = {
+      question: '',
+      category: '',
+      difficulty: 'Let',
+      img: '',
+      answers: [
+        { text: '', isCorrect: false },
+        { text: '', isCorrect: false },
+      ],
+    };
+
+    // genanvend filtre og reset quiz
+    this.applyFilters();
+    this.showBuilder = false;
+  }
+
+  // ---------- Afledte getters ----------
+  get isLast() {
+    return this.currentQuestionIndex === this.total - 1;
+  }
+  get finished() {
+    return this.total > 0 && this.isLast && this.answered;
+  }
+  get progressPct() {
+    const answeredCount = this.currentQuestionIndex + (this.answered ? 1 : 0);
+    return this.total ? Math.round((answeredCount / this.total) * 100) : 0;
+  }
+  get timePct() {
+    return this.timerPerQuestion
+      ? Math.max(0, Math.min(100, (this.timeLeft / this.timerPerQuestion) * 100))
+      : 0;
+  }
+  get correctAnswerText() {
+    return this.q?.answers[this.q.correctIndex]?.text ?? '';
+  }
+  get percentScore() {
     return this.total ? Math.round((this.score / this.total) * 100) : 0;
   }
 
-  // ------- TIMER -------
-  timerPerQuestion = 20;
-  timeLeft = this.timerPerQuestion;
-  private timerId: any = null;
-
-  get timePct() {
-    return Math.max(0, Math.round((this.timeLeft / this.timerPerQuestion) * 100));
-  }
-
+  // ---------- Quiz flow ----------
   private startTimer() {
+    this.clearTimer();
     this.timeLeft = this.timerPerQuestion;
-    this.stopTimer();
-    this.timerId = window.setInterval(() => {
-      this.timeLeft--;
-      if (this.timeLeft <= 0) this.handleTimesUp();
-    }, 1000);
+    this.deadlineMs = Date.now() + this.timerPerQuestion * 1000;
+    this.hasLoggedForQuestion = false;
+
+    const tick = () => {
+      const msLeft = Math.max(0, this.deadlineMs - Date.now());
+      // ceil for at vise “hele sekunder” tilbage
+      this.timeLeft = Math.ceil(msLeft / 1000);
+
+      if (msLeft <= 0) {
+        this.handleTimeout();
+        return;
+      }
+      this.timerHandle = setTimeout(tick, 200); // smoother end 1s-interval og mindre drift
+    };
+    tick();
   }
-  private stopTimer() {
-    if (this.timerId) {
-      clearInterval(this.timerId);
-      this.timerId = null;
-    }
+
+  private clearTimer() {
+    if (this.timerHandle) clearTimeout(this.timerHandle);
+    this.timerHandle = null;
   }
 
-  private handleTimesUp() {
-    this.stopTimer();
-    if (this.answered) return;
+  private logRunTimeOnce(reason: 'select' | 'timeout') {
+    if (this.hasLoggedForQuestion) return;
+    this.hasLoggedForQuestion = true;
 
-    // 👉 NY: registrér opsummering (intet svar)
-    this.pushSummary(null);
-
-    this.answered = true;
-    this.selectedIndex = null;
-
-    if (this.isLast) {
-      this.saveCurrentRunToHighscores();
-      setTimeout(() => this.confetti(), 150);
+    let secondsUsed: number;
+    if (reason === 'timeout') {
+      secondsUsed = this.timerPerQuestion;
     } else {
-      setTimeout(() => this.nextQuestion(), 800);
+      const elapsedMs = this.timerPerQuestion * 1000 - Math.max(0, this.deadlineMs - Date.now());
+      secondsUsed = Math.min(this.timerPerQuestion, Math.max(0, Math.round(elapsedMs / 1000)));
     }
+    this.runTimes.push(secondsUsed);
   }
 
   selectAnswer(i: number) {
-    if (this.answered || !this.q) return;
+    if (this.answered) return;
+
     this.selectedIndex = i;
     this.answered = true;
-    this.stopTimer();
-    if (this.q.answers[i]?.isCorrect) this.score++;
 
-    // 👉 NY: registrér opsummering
-    this.pushSummary(i);
+    // log tid én gang og stop timer
+    this.logRunTimeOnce('select');
+    this.clearTimer();
+
+    const isOk = i === this.q.correctIndex;
+    this.correctMap.push(isOk);
+    if (isOk) this.score++;
+    this.appendSummaryRow();
 
     if (this.isLast) {
-      this.saveCurrentRunToHighscores();
-      setTimeout(() => this.confetti(), 200);
+      setTimeout(() => this.finishAndCelebrate(), 150);
+    } else {
+      // flyt fokus til “Næste” for bedre tastaturnavigation
+      setTimeout(() => this.nextBtn?.nativeElement?.focus(), 0);
     }
+  }
+
+  private handleTimeout() {
+    if (this.answered) return; // sikkerhedsnet
+
+    this.selectedIndex = null;
+    this.answered = true;
+
+    this.logRunTimeOnce('timeout');
+    this.correctMap.push(false);
+    this.appendSummaryRow();
+
+    this.clearTimer();
+    // “Næste”-knappen er synlig via *ngIf="!isLast"
   }
 
   nextQuestion() {
     if (this.isLast) return;
+
     this.fade = false;
     setTimeout(() => {
       this.currentQuestionIndex++;
@@ -322,89 +329,159 @@ export class Quiz {
   }
 
   restart() {
-    this.prepareSession();
+    this.currentQuestionIndex = 0;
+    this.selectedIndex = null;
+    this.answered = false;
+    this.score = 0;
+    this.fade = true;
+
+    this.summary = [];
+    this.runTimes = [];
+    this.correctMap = [];
+    this.hasLoggedForQuestion = false;
+
+    this.clearTimer();
+    if (this.total > 0) this.startTimer();
   }
 
-  // ------- OPSUMMERING -------
-  summary: SummaryItem[] = [];
-
-  /** Laver en opsummeringspost for det AKTUELLE spørgsmål */
-  private pushSummary(selectedIndex: number | null) {
-    const q = this.q;
-    if (!q) return;
-    const correctIndex = q.answers.findIndex(a => a.isCorrect);
-    const wasCorrect = selectedIndex !== null && q.answers[selectedIndex]?.isCorrect === true;
-
-    this.summary.push({
-      q: q.question,
-      selectedIndex,
-      correctIndex,
-      answers: q.answers,
-      wasCorrect
-    });
+  // ---------- Opsummering / afslut ----------
+  private appendSummaryRow() {
+    const row: SummaryRow = {
+      q: this.q.question,
+      answers: this.q.answers,
+      correctIndex: this.q.correctIndex,
+      selectedIndex: this.selectedIndex,
+      wasCorrect: this.selectedIndex !== null && this.selectedIndex === this.q.correctIndex,
+    };
+    this.summary.push(row);
   }
 
-  // ------- SPILLERNAVN -------
-  playerName = '';
-  onNameChange(v: string) {
-    this.playerName = v.trim();
-    localStorage.setItem(NAME_KEY, this.playerName);
+  private async finishAndCelebrate() {
+    this.persistResult();
+    try {
+      await this.confetti();
+    } catch {
+      /* ignorer hvis ingen canvas */
+    }
   }
 
-  // ------- HIGHSCORE -------
-  private postedScore = false;
+  // ---------- Highscores & historik ----------
+  private loadPersisted() {
+    this.loadHighscores();
 
-  private loadHighscores(): ScoreEntry[] {
-    try { return JSON.parse(localStorage.getItem(HS_KEY) || '[]') as ScoreEntry[]; }
-    catch { return []; }
+    const hist = localStorage.getItem('qm_history');
+    this.history = hist ? (JSON.parse(hist) as ScoreEntry[]) : [];
   }
-  private saveHighscores(list: ScoreEntry[]) {
-    localStorage.setItem(HS_KEY, JSON.stringify(list));
+
+  private loadHighscores() {
+    const key = this.hsKey(this.selectedCategory, this.selectedDifficulty);
+    const txt = localStorage.getItem(key);
+    this.highscores = txt ? (JSON.parse(txt) as ScoreEntry[]) : [];
   }
-  private saveCurrentRunToHighscores() {
-    if (this.postedScore || this.total === 0) return;
-    this.postedScore = true;
+  private saveHighscores() {
+    const key = this.hsKey(this.selectedCategory, this.selectedDifficulty);
+    localStorage.setItem(key, JSON.stringify(this.highscores));
+  }
+  private hsKey(cat: string, diff: Difficulty) {
+    // lidt forsigtig key (slug) for æ/ø/å og mellemrum
+    const slug = (s: string) =>
+      s
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/\s+/g, '-');
+    return `qm_highscores_${slug(cat)}_${slug(diff)}`;
+  }
 
-    const name = (this.playerName || 'Ukendt').slice(0, 32);
-    const percent = this.percentScore;
-
+  private persistResult() {
+    if (this.total === 0) return;
     const entry: ScoreEntry = {
-      name, score: this.score, total: this.total, percent,
-      category: this.selectedCategory, difficulty: this.selectedDifficulty,
-      dateISO: new Date().toISOString()
+      name: this.playerName || 'Anonym',
+      category: this.selectedCategory,
+      difficulty: this.selectedDifficulty,
+      score: this.score,
+      total: this.total,
+      percent: this.percentScore,
+      dateISO: new Date().toISOString(),
     };
 
-    const list = this.loadHighscores();
-    list.push(entry);
-    list.sort((a, b) =>
-      b.percent - a.percent ||
-      b.score - a.score ||
-      b.dateISO.localeCompare(a.dateISO)
+    // Highscores (top 10, stabil sortering)
+    this.highscores.push(entry);
+    this.highscores.sort(
+      (a, b) =>
+        b.percent - a.percent ||
+        b.score - a.score ||
+        b.dateISO.localeCompare(a.dateISO)
     );
-    this.saveHighscores(list.slice(0, 50));
-  }
-  get highscores(): ScoreEntry[] {
-    const list = this.loadHighscores();
-    return list
-      .filter(e =>
-        (this.selectedCategory === 'Alle' || e.category === this.selectedCategory) &&
-        (this.selectedDifficulty === 'Alle' || e.difficulty === this.selectedDifficulty)
-      )
-      .slice(0, 10);
-  }
-  clearHighscores() {
-    this.saveHighscores([]);
+    this.highscores = this.highscores.slice(0, 10);
+    this.saveHighscores();
+
+    // Historik (seneste 25)
+    this.history.unshift(entry);
+    this.history = this.history.slice(0, 25);
+    localStorage.setItem('qm_history', JSON.stringify(this.history));
   }
 
-  // ------- KONFETTI -------
+  clearHighscores() {
+    this.highscores = [];
+    this.saveHighscores();
+  }
+  clearHistory() {
+    this.history = [];
+    localStorage.setItem('qm_history', JSON.stringify(this.history));
+  }
+
+  // ---------- Filtrering ----------
+  private applyFilters() {
+    // hent highscores til valgt kombination
+    this.loadHighscores();
+
+    // filtrér og SHUFFLE svar (men frys resultatet pr. “run”, så rækkefølge er stabil indtil nye filtre)
+    this.questions = this.masterQuestions
+      .filter((q) => q.category === this.selectedCategory && q.difficulty === this.selectedDifficulty)
+      .map((q) => this.shuffleAnswers(q));
+
+    // reset hele quizzen
+    this.restart();
+
+    // start timer hvis der er noget at quizze i
+    if (this.total > 0) this.startTimer();
+  }
+
+  // Fisher–Yates shuffle af answers + opdateret correctIndex
+  private shuffleAnswers(q: Question): Question {
+    const idxs = q.answers.map((_, i) => i);
+    for (let i = idxs.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [idxs[i], idxs[j]] = [idxs[j], idxs[i]];
+    }
+    const answers = idxs.map((i) => q.answers[i]);
+    const correctIndex = idxs.indexOf(q.correctIndex);
+    return { ...q, answers, correctIndex };
+  }
+
+  // ---------- Konfetti ----------
   private async confetti() {
     const confetti = (await import('canvas-confetti')).default;
     const end = Date.now() + 600;
     const colors = ['#4f46e5', '#9333ea', '#22c55e', '#f59e0b'];
     (function frame() {
-      confetti({ particleCount: 6, angle: 60,  spread: 60, origin: { x: 0 }, colors });
+      confetti({ particleCount: 6, angle: 60, spread: 60, origin: { x: 0 }, colors });
       confetti({ particleCount: 6, angle: 120, spread: 60, origin: { x: 1 }, colors });
       if (Date.now() < end) requestAnimationFrame(frame);
     })();
+  }
+
+  // ---------- A11y: fokus på “Næste” efter svar ----------
+  @ViewChild('nextBtn') nextBtn?: ElementRef<HTMLButtonElement>;
+
+  // ---------- NgFor trackBy ----------
+  trackAnswer = (_: number, a: Answer) => a.text;
+  trackCategory = (_: number, c: string) => c;
+  trackDifficulty = (_: number, d: Difficulty) => d;
+
+  // ---------- Lifecycle ----------
+  ngOnDestroy() {
+    this.clearTimer();
   }
 }

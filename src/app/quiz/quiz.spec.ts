@@ -1,5 +1,4 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-
 import { Quiz } from './quiz';
 
 describe('Quiz', () => {
@@ -9,12 +8,16 @@ describe('Quiz', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [Quiz]
-    })
-    .compileComponents();
+    }).compileComponents();
 
     fixture = TestBed.createComponent(Quiz);
     component = fixture.componentInstance;
     fixture.detectChanges();
+  });
+
+  afterEach(() => {
+    // sikker teardown af evt. timers
+    component.ngOnDestroy();
   });
 
   it('should create', () => {
