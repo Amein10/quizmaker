@@ -85,3 +85,24 @@
 
 /* lidt tydeligere hover for valg */
 .opt:hover:not(:disabled) { box-shadow: 0 6px 18px rgba(2,6,23,.08); }
+
+/* kategori-chips */
+.cats {
+  margin: 10px 0 4px;
+  display: flex; flex-wrap: wrap; gap: 8px;
+}
+.chip {
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--accent-weak);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 13px;
+}
+.chip.active {
+  background: var(--accent);
+  color: var(--card);
+  border-color: var(--accent);
+}
+
