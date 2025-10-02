@@ -3,7 +3,7 @@
     <header class="top">
       <div class="title">🧩 Quizmaker</div>
       <div class="spacer"></div>
-      <button class="theme" (click)="toggleTheme()" [attr.aria-label]="'Skift til ' + (theme==='dark'?'lys':'mørk') + ' tilstand'">
+      <button class="theme" (click)="toggleTheme()" [attr.aria-label]="'Skift til ' + (theme==='dark'?'lys':'mørk')">
         <span *ngIf="theme==='dark'">☀️</span>
         <span *ngIf="theme==='light'">🌙</span>
       </button>
@@ -12,33 +12,54 @@
     <div class="meta">Spørgsmål {{ currentQuestionIndex + 1 }} / {{ questions.length }}</div>
     <div class="progress"><div class="bar" [style.width.%]="progressPct"></div></div>
 
-    <main class="content" *ngIf="!isLast || !answered; else finishedBlock">
-      <h2 class="question">{{ q.question }}</h2>
+    <!-- Hovedindhold med fade -->
+    <main class="content" *ngIf="!finished; else finishedBlock">
+      <div class="fade" [class.in]="fade">
+        <h2 class="question">{{ q.question }}</h2>
 
-      <ul class="options">
-        <li *ngFor="let a of q.answers">
-          <button class="opt"
-                  [class.correct]="answered && a === q.correct"
-                  [class.wrong]="answered && selectedAnswer === a && a !== q.correct"
-                  [disabled]="answered"
-                  (click)="selectAnswer(a)">
-            {{ a }}
-          </button>
-        </li>
-      </ul>
+        <!-- billede til spørgsmålet (valgfrit) -->
+        <img *ngIf="q.img" [src]="q.img" alt="" class="q-img" />
 
-      <div class="feedback" *ngIf="answered">
-        <span *ngIf="selectedAnswer === q.correct" class="ok">✅ Korrekt!</span>
-        <span *ngIf="selectedAnswer !== q.correct" class="bad">❌ Forkert. Rigtigt svar er <strong>{{ q.correct }}</strong>.</span>
-      </div>
+        <ul class="options">
+          <li *ngFor="let a of q.answers; index as i">
+            <button
+              class="opt"
+              [class.correct]="answered && i === q.correctIndex"
+              [class.wrong]="answered && selectedIndex === i && i !== q.correctIndex"
+              [class.pressed]="!answered && selectedIndex === i"
+              [disabled]="answered"
+              (click)="selectAnswer(i)">
 
-      <div class="actions">
-        <button class="next" (click)="nextQuestion()" *ngIf="!isLast">Næste</button>
+              <!-- billede i svaret (valgfrit) -->
+              <ng-container *ngIf="a.img">
+                <img [src]="a.img" alt="" class="opt-img" />
+              </ng-container>
+
+              <!-- ikon i svaret (valgfrit) -->
+              <ng-container *ngIf="a.icon && !a.img">
+                <span class="opt-icon">{{ a.icon }}</span>
+              </ng-container>
+
+              <span>{{ a.text }}</span>
+            </button>
+          </li>
+        </ul>
+
+        <div class="feedback" *ngIf="answered">
+          <span *ngIf="selectedIndex === q.correctIndex" class="ok">✅ Korrekt!</span>
+          <span *ngIf="selectedIndex !== q.correctIndex" class="bad">
+            ❌ Forkert. Rigtigt svar er <strong>{{ q.answers[q.correctIndex].text }}</strong>.
+          </span>
+        </div>
+
+        <div class="actions">
+          <button class="next" (click)="nextQuestion()" *ngIf="!isLast">Næste</button>
+        </div>
       </div>
     </main>
 
     <ng-template #finishedBlock>
-      <div class="result">
+      <div class="result fade in">
         <h3>🎉 Du har gennemført quizzen!</h3>
         <p>Score: <strong>{{ score }}</strong> / {{ questions.length }}</p>
         <button class="next" (click)="restart()">Prøv igen</button>
