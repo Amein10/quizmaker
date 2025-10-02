@@ -1,0 +1,29 @@
+<div class="quiz-container">
+  <h2>{{ questions[currentQuestionIndex].question }}</h2>
+
+  <ul>
+    @for (answer of questions[currentQuestionIndex].answers; track answer) {
+      <li>
+        <button (click)="selectAnswer(answer)" [disabled]="showResult">
+          {{ answer }}
+        </button>
+      </li>
+    }
+  </ul>
+
+  @if (showResult) {
+    <p *ngIf="selectedAnswer === questions[currentQuestionIndex].correct" style="color: green;">
+      ✅ Korrekt!
+    </p>
+    <p *ngIf="selectedAnswer !== questions[currentQuestionIndex].correct" style="color: red;">
+      ❌ Forkert! Rigtigt svar er: {{ questions[currentQuestionIndex].correct }}
+    </p>
+
+    <button (click)="nextQuestion()" *ngIf="currentQuestionIndex < questions.length - 1">
+      Næste spørgsmål
+    </button>
+    <p *ngIf="currentQuestionIndex === questions.length - 1">
+      🎉 Du har gennemført quizzen!
+    </p>
+  }
+</div>
