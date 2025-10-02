@@ -3,6 +3,14 @@
     <header class="top">
       <div class="title">🧩 Quizmaker</div>
       <div class="spacer"></div>
+
+      <!-- Spillernavn -->
+      <input class="name" type="text"
+       placeholder="Dit navn…"
+       [value]="playerName"
+       (input)="onNameChange($any($event.target).value)" />
+
+
       <button class="theme" (click)="toggleTheme()" [attr.aria-label]="'Skift til ' + (theme==='dark'?'lys':'mørk')">
         <span *ngIf="theme==='dark'">☀️</span>
         <span *ngIf="theme==='light'">🌙</span>
@@ -14,33 +22,35 @@
       <div class="group">
         <div class="label">Kategori</div>
         <div class="chips">
-          <button
-            *ngFor="let c of categories"
-            class="chip"
-            [class.active]="c === selectedCategory"
-            (click)="setCategory(c)">
-            {{ c }}
-          </button>
+          <button *ngFor="let c of categories"
+                  class="chip"
+                  [class.active]="c === selectedCategory"
+                  (click)="setCategory(c)">{{ c }}</button>
         </div>
       </div>
 
       <div class="group">
         <div class="label">Sværhedsgrad</div>
         <div class="chips">
-          <button
-            *ngFor="let d of difficulties"
-            class="chip diff"
-            [class.active]="d === selectedDifficulty"
-            [attr.data-diff]="d"
-            (click)="setDifficulty(d)">
-            {{ d }}
-          </button>
+          <button *ngFor="let d of difficulties"
+                  class="chip diff"
+                  [class.active]="d === selectedDifficulty"
+                  [attr.data-diff]="d"
+                  (click)="setDifficulty(d)">{{ d }}</button>
         </div>
       </div>
     </div>
 
-    <div class="meta">Spørgsmål {{ total ? (currentQuestionIndex + 1) : 0 }} / {{ total }}</div>
+    <div class="meta">
+      Spørgsmål {{ total ? (currentQuestionIndex + 1) : 0 }} / {{ total }}
+    </div>
     <div class="progress"><div class="bar" [style.width.%]="progressPct"></div></div>
+
+    <!-- TIMER -->
+    <div class="timer" *ngIf="total > 0 && !finished">
+      <div class="tbar" [style.width.%]="timePct"></div>
+      <span class="tlabel">⏱️ {{ timeLeft }}s</span>
+    </div>
 
     <main class="content" *ngIf="total > 0 && !finished; else finishedBlock">
       <div class="fade" [class.in]="fade">
@@ -71,9 +81,10 @@
         </ul>
 
         <div class="feedback" *ngIf="answered">
-          <span *ngIf="q.answers[selectedIndex!]?.isCorrect" class="ok">✅ Korrekt!</span>
-          <span *ngIf="!q.answers[selectedIndex!]?.isCorrect" class="bad">
-            ❌ Forkert. Rigtigt svar er <strong>{{ correctAnswerText }}</strong>.
+          <span *ngIf="selectedIndex !== null && q.answers[selectedIndex!]?.isCorrect" class="ok">✅ Korrekt!</span>
+          <span *ngIf="selectedIndex === null || !q.answers[selectedIndex!]?.isCorrect" class="bad">
+            <ng-container *ngIf="selectedIndex === null">⏱️ Tiden løb ud. </ng-container>
+            Rigtigt svar er <strong>{{ correctAnswerText }}</strong>.
           </span>
         </div>
 
@@ -86,13 +97,31 @@
     <ng-template #finishedBlock>
       <div class="result fade in">
         <h3 *ngIf="total > 0; else noQs">🎉 Du har gennemført quizzen!</h3>
-        <p *ngIf="total > 0">Score: <strong>{{ score }}</strong> / {{ total }}</p>
+        <p *ngIf="total > 0">Score: <strong>{{ score }}</strong> / {{ total }} ({{ (score/total*100) | number:'1.0-0' }}%)</p>
         <button *ngIf="total > 0" class="next" (click)="restart()">Prøv igen</button>
 
         <ng-template #noQs>
           <h3>Ingen spørgsmål matcher dine filtre.</h3>
           <p>Vælg en anden kombination af kategori og sværhedsgrad.</p>
         </ng-template>
+
+        <!-- HIGHSCORES -->
+        <div class="highscores" *ngIf="highscores.length">
+          <h4>🏆 Highscore ({{ selectedCategory }} / {{ selectedDifficulty }})</h4>
+          <table>
+            <thead><tr><th>#</th><th>Navn</th><th>Score</th><th>Procent</th><th>Dato</th></tr></thead>
+            <tbody>
+              <tr *ngFor="let e of highscores; index as i">
+                <td>{{ i + 1 }}</td>
+                <td>{{ e.name }}</td>
+                <td>{{ e.score }} / {{ e.total }}</td>
+                <td>{{ e.percent }}%</td>
+                <td>{{ e.dateISO | date:'yyyy-MM-dd HH:mm' }}</td>
+              </tr>
+            </tbody>
+          </table>
+          <button class="danger" (click)="clearHighscores()">Nulstil highscore</button>
+        </div>
       </div>
     </ng-template>
   </div>

@@ -19,6 +19,19 @@ type Question = {
   answers: Answer[];
 };
 
+type ScoreEntry = {
+  name: string;
+  score: number;
+  total: number;
+  percent: number;
+  category: string;           // valgt filter på spilletidspunktet
+  difficulty: string;         // valgt filter på spilletidspunktet
+  dateISO: string;            // til sortering/visning
+};
+
+const HS_KEY = 'qm_highscores';
+const NAME_KEY = 'qm_player_name';
+
 @Component({
   selector: 'app-quiz',
   standalone: true,
@@ -33,8 +46,9 @@ export class Quiz {
 
   constructor() {
     this.applyTheme();
+    this.playerName = localStorage.getItem(NAME_KEY) ?? '';
     this.buildFilters();
-    this.prepareSession(); // første session (Alle/Alle + shuffle)
+    this.prepareSession(); // første session
   }
 
   toggleTheme() {
@@ -137,7 +151,7 @@ export class Quiz {
   ];
 
   // ------- FILTRE -------
-  categories: string[] = [];                 // fx ["Alle", "Film", ...]
+  categories: string[] = [];                           // fx ["Alle", "Film", ...]
   difficulties: Array<'Alle' | Difficulty> = ['Alle', 'Let', 'Middel', 'Svær'];
 
   selectedCategory: string = 'Alle';
@@ -196,6 +210,10 @@ export class Quiz {
     this.answered = false;
     this.score = 0;
     this.fade = true;
+
+    // 4) timer start (hvis der er spørgsmål)
+    this.stopTimer();
+    if (this.total > 0) this.startTimer();
   }
 
   // ------- FLOW / UI -------
@@ -214,12 +232,58 @@ export class Quiz {
     return this.q?.answers.find(a => a.isCorrect)?.text ?? '';
   }
 
+  // ------- TIMER -------
+  timerPerQuestion = 20;         // sekunder per spørgsmål (kan gøres konfigurerbart)
+  timeLeft = this.timerPerQuestion;
+  private timerId: any = null;
+
+  get timePct() {
+    return Math.max(0, Math.round((this.timeLeft / this.timerPerQuestion) * 100));
+  }
+
+  private startTimer() {
+    this.timeLeft = this.timerPerQuestion;
+    this.stopTimer();
+    this.timerId = window.setInterval(() => {
+      this.timeLeft--;
+      if (this.timeLeft <= 0) this.handleTimesUp();
+    }, 1000);
+  }
+
+  private stopTimer() {
+    if (this.timerId) {
+      clearInterval(this.timerId);
+      this.timerId = null;
+    }
+  }
+
+  private handleTimesUp() {
+    this.stopTimer();
+    if (this.answered) return;
+    // marker som besvaret uden valg
+    this.answered = true;
+    this.selectedIndex = null;
+    // sidste spørgsmål?
+    if (this.isLast) {
+      this.saveCurrentRunToHighscores();   // gem scoringen
+      setTimeout(() => this.confetti(), 150);
+    } else {
+      // auto-videre efter kort pause
+      setTimeout(() => this.nextQuestion(), 800);
+    }
+  }
+
   selectAnswer(i: number) {
     if (this.answered || !this.q) return;
     this.selectedIndex = i;
     this.answered = true;
+    this.stopTimer();
     if (this.q.answers[i]?.isCorrect) this.score++;
-    if (this.isLast) setTimeout(() => this.confetti(), 200);
+
+    if (this.isLast) {
+      this.saveCurrentRunToHighscores();
+      setTimeout(() => this.confetti(), 200);
+    }
   }
 
   nextQuestion() {
@@ -230,11 +294,77 @@ export class Quiz {
       this.selectedIndex = null;
       this.answered = false;
       this.fade = true;
+      this.startTimer();
     }, 80);
   }
 
   restart() {
-    this.prepareSession(); // samme filtre, ny shuffle
+    this.prepareSession(); // samme filtre, ny shuffle + timer reset
+  }
+
+  // ------- SPILLERNAVN -------
+  playerName = '';
+  onNameChange(v: string) {
+    this.playerName = v.trim();
+    localStorage.setItem(NAME_KEY, this.playerName);
+  }
+
+  // ------- HIGHSCORE -------
+  private postedScore = false;
+
+  private loadHighscores(): ScoreEntry[] {
+    try {
+      return JSON.parse(localStorage.getItem(HS_KEY) || '[]') as ScoreEntry[];
+    } catch { return []; }
+  }
+  private saveHighscores(list: ScoreEntry[]) {
+    localStorage.setItem(HS_KEY, JSON.stringify(list));
+  }
+
+  private saveCurrentRunToHighscores() {
+    if (this.postedScore || this.total === 0) return;
+    this.postedScore = true;
+
+    const name = (this.playerName || 'Ukendt').slice(0, 32);
+    const percent = this.total ? Math.round((this.score / this.total) * 100) : 0;
+
+    const entry: ScoreEntry = {
+      name,
+      score: this.score,
+      total: this.total,
+      percent,
+      category: this.selectedCategory,
+      difficulty: this.selectedDifficulty,
+      dateISO: new Date().toISOString()
+    };
+
+    const list = this.loadHighscores();
+    list.push(entry);
+
+    // sorter: højeste procent → højeste score → nyeste
+    list.sort((a, b) =>
+      b.percent - a.percent ||
+      b.score - a.score ||
+      b.dateISO.localeCompare(a.dateISO)
+    );
+
+    // behold fx top 50 (globalt)
+    this.saveHighscores(list.slice(0, 50));
+  }
+
+  get highscores(): ScoreEntry[] {
+    // vis top 10 for nuværende filter-kontekst (inkl. 'Alle')
+    const list = this.loadHighscores();
+    return list
+      .filter(e =>
+        (this.selectedCategory === 'Alle' || e.category === this.selectedCategory) &&
+        (this.selectedDifficulty === 'Alle' || e.difficulty === this.selectedDifficulty)
+      )
+      .slice(0, 10);
+  }
+
+  clearHighscores() {
+    this.saveHighscores([]);
   }
 
   // ------- KONFETTI -------
