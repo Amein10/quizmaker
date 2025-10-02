@@ -9,15 +9,34 @@
       </button>
     </header>
 
-    <!-- KATEGORI-CHIPS -->
-    <div class="cats" *ngIf="categories.length">
-      <button
-        *ngFor="let c of categories"
-        class="chip"
-        [class.active]="c === selectedCategory"
-        (click)="setCategory(c)">
-        {{ c }}
-      </button>
+    <!-- FILTRE -->
+    <div class="filters">
+      <div class="group">
+        <div class="label">Kategori</div>
+        <div class="chips">
+          <button
+            *ngFor="let c of categories"
+            class="chip"
+            [class.active]="c === selectedCategory"
+            (click)="setCategory(c)">
+            {{ c }}
+          </button>
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="label">Sværhedsgrad</div>
+        <div class="chips">
+          <button
+            *ngFor="let d of difficulties"
+            class="chip diff"
+            [class.active]="d === selectedDifficulty"
+            [attr.data-diff]="d"
+            (click)="setDifficulty(d)">
+            {{ d }}
+          </button>
+        </div>
+      </div>
     </div>
 
     <div class="meta">Spørgsmål {{ total ? (currentQuestionIndex + 1) : 0 }} / {{ total }}</div>
@@ -71,8 +90,8 @@
         <button *ngIf="total > 0" class="next" (click)="restart()">Prøv igen</button>
 
         <ng-template #noQs>
-          <h3>Ingen spørgsmål i denne kategori.</h3>
-          <p>Vælg en anden kategori.</p>
+          <h3>Ingen spørgsmål matcher dine filtre.</h3>
+          <p>Vælg en anden kombination af kategori og sværhedsgrad.</p>
         </ng-template>
       </div>
     </ng-template>

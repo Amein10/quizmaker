@@ -2,10 +2,19 @@ import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 type Theme = 'light' | 'dark';
-type Answer = { text: string; img?: string; icon?: string; isCorrect?: boolean };
+type Difficulty = 'Let' | 'Middel' | 'Svær';
+
+type Answer = {
+  text: string;
+  img?: string;
+  icon?: string;
+  isCorrect?: boolean;
+};
+
 type Question = {
   question: string;
   category: string;
+  difficulty: Difficulty;
   img?: string;
   answers: Answer[];
 };
@@ -18,14 +27,14 @@ type Question = {
   styleUrls: ['./quiz.css']
 })
 export class Quiz {
-  // ------- THEME -------
+  // ------- TEMA -------
   theme: Theme = (localStorage.getItem('theme') as Theme)
     ?? (window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
 
   constructor() {
     this.applyTheme();
-    this.buildCategories();
-    this.prepareSession(); // byg første session (Alle + shuffle)
+    this.buildFilters();
+    this.prepareSession(); // første session (Alle/Alle + shuffle)
   }
 
   toggleTheme() {
@@ -37,101 +46,122 @@ export class Quiz {
     localStorage.setItem('theme', this.theme);
   }
 
-  // ------- DATA -------
-  // Kildedata (ikke-shufflede)
+  // ------- KILDEDATA (ikke-shufflede) -------
   questionsSource: Question[] = [
     // PROGRAMMERING
     {
       category: 'Programmering',
+      difficulty: 'Let',
       question: 'Hvad står HTML for?',
       img: 'assets/html.png',
       answers: [
         { text: 'Hyper Text Markup Language', isCorrect: true, icon: '✅' },
-        { text: 'HighText Machine Language',  icon: '⚙️'  },
-        { text: 'Home Tool Markup Language',  icon: '🏠'  },
-      ],
+        { text: 'HighText Machine Language',  icon: '⚙️' },
+        { text: 'Home Tool Markup Language',  icon: '🏠' }
+      ]
     },
     {
       category: 'Programmering',
+      difficulty: 'Middel',
       question: 'Vælg JavaScript-logoet',
       answers: [
         { text: 'JS',    img: 'assets/js.png',  isCorrect: true },
         { text: 'HTML',  img: 'assets/html.png' },
         { text: 'Random kat', img: 'assets/cat.jpg' }
-      ],
+      ]
+    },
+    {
+      category: 'Programmering',
+      difficulty: 'Svær',
+      question: 'Hvad kalder man princippet “OCP” i OOP?',
+      answers: [
+        { text: 'Open/Closed Principle', isCorrect: true },
+        { text: 'Object/Class Pattern' },
+        { text: 'Overload/Compile Principle' }
+      ]
     },
 
     // FILM
     {
       category: 'Film',
+      difficulty: 'Let',
       question: 'Hvem instruerede “Inception”?',
       answers: [
         { text: 'Christopher Nolan', isCorrect: true },
         { text: 'Steven Spielberg' },
-        { text: 'James Cameron' },
-      ],
+        { text: 'James Cameron' }
+      ]
     },
     {
       category: 'Film',
+      difficulty: 'Middel',
       question: 'Hvilket år udkom den første “Star Wars”-film?',
       answers: [
         { text: '1977', isCorrect: true },
         { text: '1983' },
-        { text: '1975' },
-      ],
+        { text: '1975' }
+      ]
     },
 
     // HISTORIE
     {
       category: 'Historie',
+      difficulty: 'Let',
       question: 'Hvor lå den antikke by Pompeji?',
       answers: [
         { text: 'Italien', isCorrect: true },
         { text: 'Grækenland' },
-        { text: 'Spanien' },
-      ],
+        { text: 'Spanien' }
+      ]
     },
     {
       category: 'Historie',
+      difficulty: 'Middel',
       question: 'Hvilken civilisation byggede Machu Picchu?',
       answers: [
         { text: 'Inkaerne', isCorrect: true },
         { text: 'Mayaerne' },
-        { text: 'Aztekerne' },
-      ],
+        { text: 'Aztekerne' }
+      ]
     },
+    {
+      category: 'Historie',
+      difficulty: 'Svær',
+      question: 'Hvem var den første romerske kejser?',
+      answers: [
+        { text: 'Augustus', isCorrect: true },
+        { text: 'Julius Cæsar' },
+        { text: 'Nero' }
+      ]
+    }
   ];
 
-  // ------- STATE -------
-  // Kategorier
-  categories: string[] = [];         // udfyldes dynamisk
-  selectedCategory: string = 'Alle'; // aktivt valg
+  // ------- FILTRE -------
+  categories: string[] = [];                 // fx ["Alle", "Film", ...]
+  difficulties: Array<'Alle' | Difficulty> = ['Alle', 'Let', 'Middel', 'Svær'];
 
-  // Session (den filtrerede og shufflede kopi vi spiller på)
-  private session: Question[] = [];
+  selectedCategory: string = 'Alle';
+  selectedDifficulty: 'Alle' | Difficulty = 'Alle';
 
-  // UI/flow
-  currentQuestionIndex = 0;
-  selectedIndex: number | null = null;
-  answered = false;
-  score = 0;
-  fade = true;
-
-  // ------- DERIVED GETTERS -------
-  get q() { return this.session[this.currentQuestionIndex]; }
-  get total() { return this.session.length; }
-  get progressPct() { return this.total ? Math.round((this.currentQuestionIndex / this.total) * 100) : 0; }
-  get isLast() { return this.currentQuestionIndex >= this.total - 1; }
-  get finished() { return this.total > 0 && this.isLast && this.answered; }
-  get correctAnswerText(): string {
-    return this.q?.answers.find(a => a.isCorrect)?.text ?? '';
-  }
-
-  // ------- CATEGORY / SESSION BYGGER -------
-  private buildCategories() {
+  private buildFilters() {
     const set = new Set<string>(this.questionsSource.map(q => q.category));
     this.categories = ['Alle', ...Array.from(set).sort()];
   }
+
+  setCategory(cat: string) {
+    if (this.selectedCategory === cat) return;
+    this.selectedCategory = cat;
+    this.prepareSession();
+  }
+
+  setDifficulty(diff: 'Alle' | Difficulty) {
+    if (this.selectedDifficulty === diff) return;
+    this.selectedDifficulty = diff;
+    this.prepareSession();
+  }
+
+  // ------- SESSION (filtreret + shuffle) -------
+  private session: Question[] = [];
 
   private shuffle<T>(arr: T[]): T[] {
     const a = arr.slice();
@@ -141,18 +171,21 @@ export class Quiz {
     }
     return a;
   }
-
   private deepCopy<T>(obj: T): T {
     return JSON.parse(JSON.stringify(obj));
   }
 
   private prepareSession() {
-    // 1) filtrer på kategori
-    const filtered = this.selectedCategory === 'Alle'
-      ? this.questionsSource
-      : this.questionsSource.filter(q => q.category === this.selectedCategory);
+    // 1) filtrér efter kategori + sværhedsgrad
+    let filtered = this.questionsSource;
+    if (this.selectedCategory !== 'Alle') {
+      filtered = filtered.filter(q => q.category === this.selectedCategory);
+    }
+    if (this.selectedDifficulty !== 'Alle') {
+      filtered = filtered.filter(q => q.difficulty === this.selectedDifficulty);
+    }
 
-    // 2) dyb kopi, shuffle svar per spørgsmål, og shuffle spørgsmål
+    // 2) dyb kopi + shuffle svar i hvert spørgsmål + shuffle spørgsmål
     const copy = this.deepCopy<Question[]>(filtered);
     for (const q of copy) q.answers = this.shuffle(q.answers);
     this.session = this.shuffle(copy);
@@ -165,19 +198,27 @@ export class Quiz {
     this.fade = true;
   }
 
-  setCategory(cat: string) {
-    if (this.selectedCategory === cat) return;
-    this.selectedCategory = cat;
-    this.prepareSession();
+  // ------- FLOW / UI -------
+  currentQuestionIndex = 0;
+  selectedIndex: number | null = null;
+  answered = false;
+  score = 0;
+  fade = true;
+
+  get q() { return this.session[this.currentQuestionIndex]; }
+  get total() { return this.session.length; }
+  get progressPct() { return this.total ? Math.round((this.currentQuestionIndex / this.total) * 100) : 0; }
+  get isLast() { return this.currentQuestionIndex >= this.total - 1; }
+  get finished() { return this.total > 0 && this.isLast && this.answered; }
+  get correctAnswerText(): string {
+    return this.q?.answers.find(a => a.isCorrect)?.text ?? '';
   }
 
-  // ------- FLOW -------
   selectAnswer(i: number) {
     if (this.answered || !this.q) return;
     this.selectedIndex = i;
     this.answered = true;
     if (this.q.answers[i]?.isCorrect) this.score++;
-
     if (this.isLast) setTimeout(() => this.confetti(), 200);
   }
 
@@ -193,7 +234,7 @@ export class Quiz {
   }
 
   restart() {
-    this.prepareSession(); // samme kategori, ny shuffle
+    this.prepareSession(); // samme filtre, ny shuffle
   }
 
   // ------- KONFETTI -------
