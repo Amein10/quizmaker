@@ -43,6 +43,31 @@
       </div>
     </section>
 
+    <section class="quiz-list" *ngIf="!total && !showBuilder">
+  <h4>Vælg en quiz at starte</h4>
+
+  <div class="list">
+    <div *ngFor="let qz of quizzes" class="quiz-item">
+      <button class="opt" (click)="selectQuiz(qz)">▶️ {{ qz.name }} ({{ qz.questions.length }} spørgsmål)</button>
+      <button class="danger small" (click)="deleteQuiz(qz)">🗑️</button>
+    </div>
+  </div>
+
+  <div class="new-quiz">
+    <input type="text" [(ngModel)]="quizName" placeholder="Nyt quiznavn..." />
+    <button class="next" (click)="createQuiz()">+ Opret</button>
+  </div>
+
+  <div class="import-export">
+    <button class="chip" (click)="exportQuizzes()">💾 Eksporter</button>
+    <label class="chip">
+      📂 Importér
+      <input type="file" (change)="importQuizzes($event)" hidden />
+    </label>
+  </div>
+</section>
+
+
     <div class="filters">
       <div class="group">
         <div class="label">Kategori</div>

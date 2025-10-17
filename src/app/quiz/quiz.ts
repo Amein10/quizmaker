@@ -24,12 +24,82 @@ export class Quiz implements OnDestroy {
     (localStorage.getItem('theme') as Theme) ??
     (typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
 
-  constructor() {
+constructor() {
   this.applyTheme();
   this.loadPersisted();
-  // ingen automatisk quizstart
+  this.loadQuizzes(); // ⬅️ tilføj denne
 }
 
+// ---------- Håndtering af quiz-sæt ----------
+
+loadQuizzes() {
+  const txt = localStorage.getItem('qm_quizzes');
+  this.quizzes = txt ? JSON.parse(txt) : [
+    {
+      name: 'Standardquiz',
+      questions: this.masterQuestions
+    }
+  ];
+}
+
+saveQuizzes() {
+  localStorage.setItem('qm_quizzes', JSON.stringify(this.quizzes));
+}
+
+selectQuiz(qz: { name: string; questions: Question[] }) {
+  this.selectedQuiz = qz;
+  this.masterQuestions = qz.questions;
+  this.applyFilters(); // genbrug eksisterende filtrering
+}
+
+createQuiz() {
+  const name = this.quizName.trim();
+  if (!name) return alert('Skriv et quiznavn først!');
+  const exists = this.quizzes.some(q => q.name.toLowerCase() === name.toLowerCase());
+  if (exists) return alert('En quiz med dette navn findes allerede.');
+
+  const newSet = { name, questions: [] as Question[] };
+  this.quizzes.push(newSet);
+  this.saveQuizzes();
+  this.quizName = '';
+}
+
+deleteQuiz(qz: { name: string }) {
+  if (!confirm(`Slet quiz "${qz.name}"?`)) return;
+  this.quizzes = this.quizzes.filter(q => q.name !== qz.name);
+  this.saveQuizzes();
+  if (this.selectedQuiz?.name === qz.name) {
+    this.selectedQuiz = null;
+    this.questions = [];
+  }
+}
+
+exportQuizzes() {
+  const blob = new Blob([JSON.stringify(this.quizzes, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'quizzes.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+async importQuizzes(event: any) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  const text = await file.text();
+  try {
+    const data = JSON.parse(text);
+    if (Array.isArray(data)) {
+      this.quizzes = data;
+      this.saveQuizzes();
+      alert('Quizzer importeret!');
+    } else {
+      alert('Ugyldig quiz-fil.');
+    }
+  } catch {
+    alert('Fejl ved indlæsning af fil.');
+  }
+}
 
   toggleTheme() { this.theme = this.theme === 'dark' ? 'light' : 'dark'; this.applyTheme(); }
   private applyTheme() {
@@ -40,6 +110,12 @@ export class Quiz implements OnDestroy {
 
   playerName = localStorage.getItem('playerName') || '';
   onNameChange(v: string) { this.playerName = v.trim(); localStorage.setItem('playerName', this.playerName); }
+
+  // ---------- Quiz-sæt ----------
+quizzes: { name: string; questions: Question[] }[] = [];
+selectedQuiz: { name: string; questions: Question[] } | null = null;
+quizName = '';
+
 
   categories = ['Programmering', 'Film', 'Historie'];
   difficulties: Difficulty[] = ['Let', 'Middel', 'Svær'];
