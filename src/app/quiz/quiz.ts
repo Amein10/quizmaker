@@ -24,7 +24,12 @@ export class Quiz implements OnDestroy {
     (localStorage.getItem('theme') as Theme) ??
     (typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
 
-  constructor() { this.applyTheme(); this.loadPersisted(); this.applyFilters(); }
+  constructor() {
+  this.applyTheme();
+  this.loadPersisted();
+  // ingen automatisk quizstart
+}
+
 
   toggleTheme() { this.theme = this.theme === 'dark' ? 'light' : 'dark'; this.applyTheme(); }
   private applyTheme() {
