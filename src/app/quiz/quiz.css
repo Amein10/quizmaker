@@ -160,3 +160,35 @@ button.small {
   font-size: 0.8rem;
 }
 
+.quiz-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: .5rem;
+  background: var(--card-bg);
+  border-radius: .5rem;
+  margin: .25rem 0;
+}
+
+.quiz-info {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+
+.quiz-actions {
+  display: flex;
+  gap: .5rem;
+}
+
+.quiz-item .count {
+  font-size: .85rem;
+  opacity: .7;
+}
+
+.quiz-item button.chip[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+

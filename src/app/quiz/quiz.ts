@@ -47,9 +47,14 @@ saveQuizzes() {
 }
 
 selectQuiz(qz: { name: string; questions: Question[] }) {
+  if (!qz.questions.length) {
+    alert(`Quizzen "${qz.name}" har ingen spørgsmål endnu.`);
+    return;
+  }
+
   this.selectedQuiz = qz;
   this.masterQuestions = qz.questions;
-  this.applyFilters(); // genbrug eksisterende filtrering
+  this.applyFilters();
 }
 
 createQuiz() {
@@ -65,14 +70,17 @@ createQuiz() {
 }
 
 deleteQuiz(qz: { name: string }) {
-  if (!confirm(`Slet quiz "${qz.name}"?`)) return;
+  if (!confirm(`Er du sikker på, at du vil slette quizzen "${qz.name}"?`)) return;
+
   this.quizzes = this.quizzes.filter(q => q.name !== qz.name);
   this.saveQuizzes();
+
   if (this.selectedQuiz?.name === qz.name) {
     this.selectedQuiz = null;
     this.questions = [];
   }
 }
+
 
 exportQuizzes() {
   const blob = new Blob([JSON.stringify(this.quizzes, null, 2)], { type: 'application/json' });

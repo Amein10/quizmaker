@@ -43,13 +43,22 @@
       </div>
     </section>
 
-    <section class="quiz-list" *ngIf="!total && !showBuilder">
-  <h4>Vælg en quiz at starte</h4>
+<section class="quiz-list" *ngIf="!total && !showBuilder">
+  <h4>🎯 Vælg en quiz at starte</h4>
 
   <div class="list">
     <div *ngFor="let qz of quizzes" class="quiz-item">
-      <button class="opt" (click)="selectQuiz(qz)">▶️ {{ qz.name }} ({{ qz.questions.length }} spørgsmål)</button>
-      <button class="danger small" (click)="deleteQuiz(qz)">🗑️</button>
+      <div class="quiz-info">
+        <strong>{{ qz.name }}</strong>
+        <span class="count">({{ qz.questions.length }} spørgsmål)</span>
+      </div>
+
+      <div class="quiz-actions">
+        <button class="chip" [disabled]="!qz.questions.length" (click)="selectQuiz(qz)">
+          ▶️ Start
+        </button>
+        <button class="danger small" (click)="deleteQuiz(qz)">🗑️</button>
+      </div>
     </div>
   </div>
 
@@ -66,7 +75,6 @@
     </label>
   </div>
 </section>
-
 
     <div class="filters">
       <div class="group">
